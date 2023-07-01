@@ -5,10 +5,8 @@ import glfw
 import OpenGL.GL as gl
 import ctypes as ct
 
-import imgui
-from imgui.integrations.glfw import GlfwRenderer
-
 from shader import Shader
+from gui import Gui
 
 
 class Renderer:
@@ -33,8 +31,7 @@ class Renderer:
     # Make the window's context current
     glfw.make_context_current(self.window)
 
-    imgui.create_context()
-    self.impl = GlfwRenderer(self.window)
+    self.gui = Gui(self.window)
 
     # program defining the graphics pipeline
     self.pipeline_shader = Shader("Pipeline",
@@ -99,7 +96,7 @@ class Renderer:
       glfw.poll_events()
       gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
-      self.impl.process_inputs()
+      self.gui.process_input()
 
       now = time.monotonic()
       if now - last_tick > self.tick_delta:
@@ -116,20 +113,13 @@ class Renderer:
         time.sleep(self.delta - now + last_render)
 
       self.render_board()
-      self.render_imgui()
+      self.gui.render()
       # Swap front and back buffers
       glfw.swap_buffers(self.window)
       last_render = time.monotonic()
 
-  def render_imgui(self):
-    imgui.new_frame()
-    imgui.begin("Your first window!", True)
-    imgui.text("Hello world!")
-    # close current window context
-    imgui.end()
-    imgui.end_frame()
-    imgui.render()
-    self.impl.render(imgui.get_draw_data())
+      if self.gui.close_app:
+        break
 
   def render_board(self):
     self.pipeline_shader.bind()
