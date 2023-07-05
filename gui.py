@@ -12,6 +12,12 @@ class Gui:
     self.close_app = False
     self.file_menu_opened = False
 
+    # width and height of the visible part of the board
+    self.width: int = 10
+    self.height: int = 10
+
+    self.changed: bool = False
+
   def process_input(self):
     self.impl.process_inputs()
 
@@ -26,6 +32,10 @@ class Gui:
             self.file_menu_opened |= imgui.menu_item("Load")[0]
             self.close_app = imgui.menu_item("Close")[0]
     imgui.text("Hello world!")
+
+    changed_w, self.width = imgui.input_int("Width", self.width)
+    changed_h, self.height = imgui.input_int("height", self.height)
+    self.changed = self.changed or changed_h or changed_w
 
     # TODO resolution menu
     imgui.end()

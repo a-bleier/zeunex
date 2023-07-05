@@ -14,6 +14,10 @@ class App:
     self.board.board[6, 6] = 1
     self.board.board[7, 4] = 1
 
+    self.gui = self.renderer.gui
+    self.gui.width = 10
+    self.gui.height = 10
+
   def start(self):
     self.renderer.render_loop(self.board)
     self.renderer.terminate()

@@ -5,9 +5,15 @@ import glfw
 import OpenGL.GL as gl
 import ctypes as ct
 
+
 from shader import Shader
 from gui import Gui
+from shader_storage import ShaderStorage
 
+
+import ipdb
+
+MAX_BOARD_BUFFER_SIZE = 512*512
 
 class Renderer:
 
@@ -32,6 +38,7 @@ class Renderer:
     glfw.make_context_current(self.window)
 
     self.gui = Gui(self.window)
+    self.center = (int(self.gui.width/2), int(self.gui.height/2))
 
     # program defining the graphics pipeline
     self.pipeline_shader = Shader("Pipeline",
@@ -70,20 +77,14 @@ class Renderer:
     # explaining to the VAO what data will be used for slot 0 (position slot)
     gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, gl.GL_FALSE, 3 * ct.sizeof(gl.GLfloat), ct.c_void_p(0))
 
-    # ssbo test
-    self.ssbo = None
-    self.ssbo = gl.glGenBuffers(1, gl.GL_SHADER_STORAGE_BUFFER)
-    gl.glBindBuffer(gl.GL_SHADER_STORAGE_BUFFER, self.ssbo)
-    gl.glBindBufferBase(gl.GL_SHADER_STORAGE_BUFFER, 1, self.ssbo)
-    dummy_data = np.zeros((104), dtype=np.int32)
-    dummy_data[0] = 10
-    dummy_data[1] = 10
-    dummy_data[2] = 100
-    dummy_data[3] = 100
-    gl.glBufferData(gl.GL_SHADER_STORAGE_BUFFER,
-                    size=ct.sizeof(gl.GLint) * len(dummy_data),
-                    data=dummy_data.ctypes.data_as(ct.POINTER(ct.c_int32)),
-                    usage=gl.GL_STATIC_READ)
+    self.ssbo = ShaderStorage(MAX_BOARD_BUFFER_SIZE + 4*4, 1)
+    self.ssbo.bind()
+    self.ssbo.subData(self.gui.width, 0)
+    self.ssbo.subData(self.gui.height, 1)
+    self.ssbo.subData(100, 2)
+    self.ssbo.subData(100, 3)
+    self.ssbo.unbind()
+    self.ssbo.bindBase()
 
   def render_loop(self, board):
 
@@ -101,11 +102,19 @@ class Renderer:
       now = time.monotonic()
       if now - last_tick > self.tick_delta:
         board.evolve()
-        board_data = board.board
-        gl.glBufferSubData(gl.GL_SHADER_STORAGE_BUFFER,
-                         offset=4 * ct.sizeof(gl.GLint),
-                         size=ct.sizeof(gl.GLint) * 100,
-                         data=board_data.ctypes.data_as(ct.POINTER(ct.c_int32)))
+        # TODO Check whether window (width, height), exceeds board boundary
+        self.center = (board.board.shape[1]//2, board.board.shape[0]//2)
+        board_data: np.ndarray = np.copy(board.board[int(self.center[1]-self.gui.height/2):int(self.center[1]+self.gui.height/2),
+                                         int(self.center[0]-self.gui.width/2):int(self.center[0]+self.gui.width/2)])
+        self.ssbo.subData(board_data, 4)
+        if self.gui.changed:
+          print(f"{self.gui.width}, {self.gui.height}")
+          self.ssbo.subData(self.gui.width, 0)
+          self.ssbo.subData(self.gui.height, 1)
+          self.ssbo.subData(100, 2)
+          self.ssbo.subData(100, 3)
+          self.gui.changed = False
+
         last_tick = time.monotonic()
 
       now = time.monotonic()
